@@ -53,7 +53,7 @@ public class BLE
 
 	// Implementation of BLE Central API.
 
-	private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
+	private static final int PERMISSION_REQUEST_FINE_LOCATION = 1;
 
 	private static final int ACTIVITY_REQUEST_ENABLE_BLUETOOTH = 1;
 	private static final int ACTIVITY_REQUEST_ENABLE_LOCATION = 2;
@@ -270,7 +270,9 @@ public class BLE
 	{
 		if (mScanCallbackContext != null) {
 			BluetoothAdapter a = BluetoothAdapter.getDefaultAdapter();
-			a.stopLeScan(this);
+            if (a != null) {
+                a.stopLeScan(this);
+            }
 			mScanCallbackContext = null;
 		}
 		if (mConnectedDevices != null) {
@@ -400,7 +402,7 @@ public class BLE
 	public void onRequestPermissionResult(int requestCode, String[] permissions,
 		int[] grantResults) throws JSONException
 	{
-		if (PERMISSION_REQUEST_COARSE_LOCATION == requestCode)
+		if (PERMISSION_REQUEST_FINE_LOCATION == requestCode)
 		{
 			if (PackageManager.PERMISSION_GRANTED == grantResults[0])
 			{
@@ -421,7 +423,7 @@ public class BLE
 	private void startScanCheckApplicationLocationPermission()
 	{
 		// Location permission check.
-		if (cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION))
+		if (cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION))
 		{
 			// Location permission ok, next check system location setting.
 			startScanCheckSystemLocationSetting();
@@ -429,8 +431,8 @@ public class BLE
 		else
 		{
 			// Location permission needed. Ask user.
-			cordova.requestPermission(this, PERMISSION_REQUEST_COARSE_LOCATION,
-				Manifest.permission.ACCESS_COARSE_LOCATION);
+			cordova.requestPermission(this, PERMISSION_REQUEST_FINE_LOCATION,
+				Manifest.permission.ACCESS_FINE_LOCATION);
 		}
 	}
 
