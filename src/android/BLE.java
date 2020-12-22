@@ -53,7 +53,7 @@ public class BLE
 
 	// Implementation of BLE Central API.
 
-	private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
+	private static final int PERMISSION_REQUEST_FINE_LOCATION = 1;
 
 	private static final int ACTIVITY_REQUEST_ENABLE_BLUETOOTH = 1;
 	private static final int ACTIVITY_REQUEST_ENABLE_LOCATION = 2;
@@ -75,6 +75,8 @@ public class BLE
 	private Context mContext;
 
 	private boolean mRegisteredReceivers = false;
+	private BluetoothStateReceiver mBluetoothStateReceiver;
+	private BondStateReceiver mBondStateReceiver;
 
 	// Called when the device's Bluetooth powers on.
 	// Used by startScan() and connect() to wait for power-on if Bluetooth was
@@ -116,15 +118,30 @@ public class BLE
 
 		if (!mRegisteredReceivers)
 		{
+			mBluetoothStateReceiver = new BluetoothStateReceiver();
 			mContext.registerReceiver(
-				new BluetoothStateReceiver(),
+				mBluetoothStateReceiver,
 				new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
 
+			mBondStateReceiver = new BondStateReceiver();
 			mContext.registerReceiver(
-				new BondStateReceiver(),
+				mBondStateReceiver,
 				new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
 
 			mRegisteredReceivers = true;
+		}
+	}
+
+	@Override
+	public void onDestroy() {
+		if (mRegisteredReceivers) {
+			webView.getContext().unregisterReceiver(mBluetoothStateReceiver);
+			mBluetoothStateReceiver = null;
+
+			webView.getContext().unregisterReceiver(mBondStateReceiver);
+			mBondStateReceiver = null;
+
+			mRegisteredReceivers = false;
 		}
 	}
 
@@ -253,7 +270,9 @@ public class BLE
 	{
 		if (mScanCallbackContext != null) {
 			BluetoothAdapter a = BluetoothAdapter.getDefaultAdapter();
-			a.stopLeScan(this);
+            if (a != null) {
+                a.stopLeScan(this);
+            }
 			mScanCallbackContext = null;
 		}
 		if (mConnectedDevices != null) {
@@ -322,7 +341,9 @@ public class BLE
 			}
 			else {
 				// System Location is off, send callback error.
-				mScanCallbackContext.error("System Location is off");
+				if (null != mScanCallbackContext) {
+					mScanCallbackContext.error("System Location is off");
+				}
 				mScanCallbackContext = null;
 			}
 		}
@@ -381,7 +402,7 @@ public class BLE
 	public void onRequestPermissionResult(int requestCode, String[] permissions,
 		int[] grantResults) throws JSONException
 	{
-		if (PERMISSION_REQUEST_COARSE_LOCATION == requestCode)
+		if (PERMISSION_REQUEST_FINE_LOCATION == requestCode)
 		{
 			if (PackageManager.PERMISSION_GRANTED == grantResults[0])
 			{
@@ -391,7 +412,9 @@ public class BLE
 			else
 			{
 				// Permission NOT ok, send callback error.
-				mScanCallbackContext.error("Location permission not granted");
+				if (null != mScanCallbackContext) {
+					mScanCallbackContext.error("Location permission not granted");
+				}
 				mScanCallbackContext = null;
 			}
 		}
@@ -400,7 +423,7 @@ public class BLE
 	private void startScanCheckApplicationLocationPermission()
 	{
 		// Location permission check.
-		if (cordova.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION))
+		if (cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION))
 		{
 			// Location permission ok, next check system location setting.
 			startScanCheckSystemLocationSetting();
@@ -408,8 +431,8 @@ public class BLE
 		else
 		{
 			// Location permission needed. Ask user.
-			cordova.requestPermission(this, PERMISSION_REQUEST_COARSE_LOCATION,
-				Manifest.permission.ACCESS_COARSE_LOCATION);
+			cordova.requestPermission(this, PERMISSION_REQUEST_FINE_LOCATION,
+				Manifest.permission.ACCESS_FINE_LOCATION);
 		}
 	}
 
@@ -450,7 +473,9 @@ public class BLE
 				new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialogInterface, int i) {
 						// Permission NOT ok, send callback error.
-						mScanCallbackContext.error("System Location is off");
+						if (null != mScanCallbackContext) {
+							mScanCallbackContext.error("System Location is off");
+						}
 						mScanCallbackContext = null;
 					}
 				});
@@ -554,7 +579,10 @@ public class BLE
 		final BluetoothAdapter.LeScanCallback callback = this;
 
 		// Call stopLeScan without checking if bluetooth is on.
-		adapter.stopLeScan(callback);
+		if (null != adapter)
+		{
+			adapter.stopLeScan(callback);
+		}
 
 		/*
 		// TODO: Since there is no callback given to stopScan, there can be other
@@ -985,7 +1013,7 @@ public class BLE
 					gh.mCurrentOpContext = callbackContext;
 					BluetoothGattCharacteristic c = gh.mCharacteristics.get(args.getInt(1));
 					System.out.println("writeCharacteristic("+args.getInt(0)+", "+args.getInt(1)+", "+args.getString(2)+")");
-					c.setWriteType(writeType);
+					//c.setWriteType(writeType);
 					c.setValue(args.getArrayBuffer(2));
 					if (!gh.mGatt.writeCharacteristic(c)) {
 						callbackContext.error("writeCharacteristic");
